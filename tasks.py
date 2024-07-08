@@ -1,5 +1,5 @@
 class AISoftwareCompanyTasks():
-    def Set_high_level_requirements_task(self, agent):
+    def set_high_level_requirements_task(self, agent):
         return Task(
             description="Define the overall vision, goals, and strategic direction of the project."
             agent=agent,
@@ -14,7 +14,7 @@ class AISoftwareCompanyTasks():
             """
         )
     
-    def Write_PRD_task(self, agent, context):
+    def write_PRD_task(self, agent, context):
         return Task(
             description="Develop detailed documents that outline the product's objectives, scope, features, user stories, and acceptance criteria."
             agent=agent,
@@ -38,7 +38,7 @@ class AISoftwareCompanyTasks():
             """
         )
     
-    def Revise_PRD_task(self, agent, context):
+    def revise_PRD_task(self, agent, context):
         return Task(
             description="Continuously update and refine the PRD based on feedback and changing requirements."
             agent=agent,
@@ -62,7 +62,7 @@ class AISoftwareCompanyTasks():
             """
         )
      
-    def Write_design_task(self, agent, context):
+    def write_design_task(self, agent, context):
         return Task(
             description="Create comprehensive design documents detailing the system architecture, design patterns, data flow, and technical specifications.",
             agent=agent,
@@ -87,7 +87,7 @@ class AISoftwareCompanyTasks():
                         - The backend must handle up to 10,000 concurrent users.'"""
         )
     
-    def Revise_design_task(self, agent, context):
+    def revise_design_task(self, agent, context):
         return Task(
             description="Continuously update and refine the PRD based on feedback and changing requirements.",
             agent=agent,
@@ -111,7 +111,7 @@ class AISoftwareCompanyTasks():
             """
         )
     
-    def Review_PRD_task(self, agent, context):
+    def review_PRD_task(self, agent, context):
         return Task(
             description="Continuously update and refine the PRD based on feedback and changing requirements.",
             agent=agent,
@@ -135,7 +135,7 @@ class AISoftwareCompanyTasks():
             """
         )
     
-    def Review_code_task(self, agent, context):
+    def review_code_task(self, agent, context):
         return Task(
             description="Continuously update and refine the PRD based on feedback and changing requirements.",
             agent=agent,
@@ -159,7 +159,7 @@ class AISoftwareCompanyTasks():
             """
         )
 
-    def Write_tasks_task(self, agent, context):
+    def write_tasks_task(self, agent, context):
         return Task(
             description="Break down the project into manageable tasks and create detailed task descriptions.",
             agent=agent,
@@ -173,7 +173,7 @@ class AISoftwareCompanyTasks():
                         Due Date: 2024-07-15'"""
         )
     
-    def Assign_tasks_task(self, agent, context):
+    def assign_tasks_task(self, agent, context):
         return Task(
             description="Allocate tasks to appropriate team members based on their skills and availability.",
             agent=agent,
@@ -187,7 +187,7 @@ class AISoftwareCompanyTasks():
                         - Task: Integrate Chat and Notifications -> Engineer 3'"""
         )
 
-    def Write_code_task(self, agent, instruction):
+    def write_code_task(self, agent, instruction):
         return Task(
             description="Develop the software according to the specifications in the design documents.",
             agent=agent,
@@ -203,7 +203,7 @@ class AISoftwareCompanyTasks():
                                 raise AuthenticationError("Invalid credentials")'"""
         )
     
-    def Review_code_task(self, agent, context):
+    def review_code_task(self, agent, context):
         return Task(
             description="Conduct code reviews to ensure that the implementation adheres to the design and meets quality standards.",
             agent=agent,
@@ -216,7 +216,7 @@ class AISoftwareCompanyTasks():
                         - Recommended refactoring the authentication module to enhance security.'"""
         )
     
-    def Debug_code_task(self, agent, context):
+    def debug_code_task(self, agent, context):
         return Task(
             description="Identify and fix bugs and issues in the code.",
             agent=agent,
@@ -229,7 +229,7 @@ class AISoftwareCompanyTasks():
                         - Identified and resolved a memory leak in the WebSocket connection handling.'"""
         )
     
-    def Write_tests_task(self, agent, context):
+    def write_tests_task(self, agent, context):
         return Task(
             description="Develop test cases and scenarios to validate the functionality and performance of the software.",
             agent=agent,
@@ -242,7 +242,7 @@ class AISoftwareCompanyTasks():
                             assert authenticate_user('testuser', 'wrongpassword') == AuthenticationError'"""
         )
     
-    def Run_tests_task(self, agent, context):
+    def run_tests_task(self, agent, context):
         return Task(
             description="Execute test cases, report defects, and verify fixes to ensure the software meets quality standards.",
             agent=agent,
