@@ -1,8 +1,12 @@
+from crewai import TaskManager, AgentManager
 from agents import AISoftwareCompanyAgent
 from tasks import AISoftwareCompanyTasks
 
 agents = AISoftwareCompanyAgent
 tasks = AISoftwareCompanyTasks
+
+task_manager = TaskManager() # Initialize the task manager for the simulation
+agent_manager = AgentManager() # Initialize the agent manager for the simulation
 
 #Setting up agents
 boss = agents.boss_agent

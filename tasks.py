@@ -1,3 +1,6 @@
+from crewai import Task
+
+
 class AISoftwareCompanyTasks():
     def set_high_level_requirements_task(self, agent):
         return Task(
