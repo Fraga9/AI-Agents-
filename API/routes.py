@@ -29,7 +29,7 @@ def create_project():
         task_callback=data.get('task_callback'),
         share_crew=data.get('share_crew'),
         output_log_file=data.get('output_log_file'),
-        manager_agent=data.get('manager_agent'),
+        manager_agent_id=data.get('manager_agent_id'),
         manager_callbacks=data.get('manager_callbacks'),
         prompt_file=data.get('prompt_file')
     )

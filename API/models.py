@@ -1,11 +1,12 @@
 from flask_sqlalchemy import SQLAlchemy
+import os
 
 db = SQLAlchemy()
 
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    agents = db.relationship('Agent', backref='dashboard', lazy=True)
+    agents = db.relationship('Agent', backref='dashboard', lazy=True, foreign_keys='Agent.project_id')
     tasks = db.relationship('Task', backref='dashboard', lazy=True)
     process = db.Column(db.String(100), nullable=True)  # Optional
     verbose = db.Column(db.Boolean, nullable=True)  # Optional
@@ -23,7 +24,8 @@ class Project(db.Model):
     task_callback = db.Column(db.String(200), nullable=True)  # Optional
     share_crew = db.Column(db.Boolean, nullable=True)  # Optional
     output_log_file = db.Column(db.String(200), nullable=True)  # Optional, True or path to log file
-    manager_agent = db.Column(db.String(100), nullable=True)  # Optional, custom manager agent
+    manager_agent_id = db.Column(db.Integer, db.ForeignKey('agent.id'), nullable=True)
+    manager = db.relationship('Agent', backref='managed_projects', foreign_keys=[manager_agent_id])
     manager_callbacks = db.Column(db.JSON, nullable=True)  # Optional, list of callback handlers for manager
     prompt_file = db.Column(db.String(200), nullable=True)  # Optional, path to prompt JSON file
 
