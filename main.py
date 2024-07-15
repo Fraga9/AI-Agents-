@@ -5,6 +5,7 @@ from tasks import AISoftwareCompanyTasks
 agents = AISoftwareCompanyAgent
 tasks = AISoftwareCompanyTasks
 
+
 task_manager = TaskManager() # Initialize the task manager for the simulation
 agent_manager = AgentManager() # Initialize the agent manager for the simulation
 
