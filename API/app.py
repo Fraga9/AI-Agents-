@@ -1,14 +1,14 @@
 from flask import Flask
 from config import Config
 from models import db
-from routes import api
+from api import api_bp  
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
 db.init_app(app)
 
-app.register_blueprint(api, url_prefix='/api')
+app.register_blueprint(api_bp)
 
 if __name__ == '__main__':
     with app.app_context():

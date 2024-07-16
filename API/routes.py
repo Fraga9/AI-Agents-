@@ -1,96 +1,219 @@
 from flask import Blueprint, request, jsonify
-from models import db, Project, Agent, Task
+from flask_restx import Api, Resource, fields
+from models import db, Project, Agent, Task, Tool
+from api import ns_project, ns_agent, ns_task, ns_tool, project_model, agent_model, task_model, tool_model
 
-api = Blueprint('api', __name__)
+# Projects
+@ns_project.route('/')
+class ProjectListResource(Resource):
+    @ns_project.marshal_list_with(project_model)
+    def get(self):
+        """ Retorna la lista de todos los proyectos """
+        projects = Project.query.all()
+        return projects
 
-@api.route('/project', methods=['POST'])
-def create_project():
-    data = request.get_json()
-    name = data.get('name')
-    if not name:
-        return jsonify({'error': 'Project name is required'}), 400
+    @ns_project.expect(project_model)
+    @ns_project.marshal_with(project_model, code=201)
+    def post(self):
+        """ Crea un nuevo proyecto """
+        data = request.json
+        project = Project(**data)
+        db.session.add(project)
+        db.session.commit()
+        return project, 201
 
-    # Updated to include new optional fields from Project model
-    project = Project(
-        name=name,
-        process=data.get('process'),
-        verbose=data.get('verbose'),
-        manager_llm=data.get('manager_llm'),
-        function_calling_llm=data.get('function_calling_llm'),
-        config=data.get('config'),
-        max_rpm=data.get('max_rpm'),
-        language=data.get('language'),
-        language_file=data.get('language_file'),
-        memory=data.get('memory'),
-        cache=data.get('cache'),
-        embedder=data.get('embedder'),
-        full_output=data.get('full_output'),
-        step_callback=data.get('step_callback'),
-        task_callback=data.get('task_callback'),
-        share_crew=data.get('share_crew'),
-        output_log_file=data.get('output_log_file'),
-        manager_agent_id=data.get('manager_agent_id'),
-        manager_callbacks=data.get('manager_callbacks'),
-        prompt_file=data.get('prompt_file')
-    )
-    db.session.add(project)
-    db.session.commit()
-    return jsonify({'id': project.id, 'name': project.name}), 201
+@ns_project.route('/<int:id>')
+@ns_project.response(404, 'Project not found')
+class ProjectResource(Resource):
+    @ns_project.marshal_with(project_model)
+    def get(self, id):
+        """ Retorna detalles de un proyecto específico """
+        project = Project.query.get_or_404(id)
+        return project
 
-@api.route('/agent', methods=['POST'])
-def create_agent():
-    data = request.get_json()
-    # Updated to match the Agent model changes
-    agent = Agent(
-        role=data.get('role', 'engineer'),
-        goal=data.get('goal', 'Default goal'),
-        backstory=data.get('backstory_context', 'Default context'),
-        llm=data.get('llm', 'Default llm'),
-        tools=data.get('tools', 'Default tools'),
-        function_calling_llm=data.get('function_calling_llm'),
-        max_iter=data.get('max_iter', 10),
-        max_rpm=data.get('max_rpm'),
-        max_execution_time=data.get('max_execution_time'),
-        verbose=data.get('verbose', False),
-        allow_delegation=data.get('allow_delegation', True),
-        step_callback=data.get('step_callback'),
-        cache=data.get('cache', True),
-        system_template=data.get('system_template'),
-        prompt_template=data.get('prompt_template'),
-        response_template=data.get('response_template'),
-        project_id=data.get('project_id')
-    )
-    db.session.add(agent)
-    db.session.commit()
-    return jsonify({'id': agent.id, 'role': agent.role}), 201
+    @ns_project.expect(project_model)
+    @ns_project.marshal_with(project_model)
+    def put(self, id):
+        """ Actualiza un proyecto existente """
+        project = Project.query.get_or_404(id)
+        data = request.json
+        project.update(data)
+        db.session.commit()
+        return project
 
-@api.route('/task', methods=['POST'])
-def create_task():
-    data = request.get_json()
-    # Updated to match the Task model changes
-    task = Task(
-        name=data.get('name'),
-        description=data.get('description'),
-        agent=data.get('agent'),
-        expected_output=data.get('expected_output', 'Default output'),
-        tools=data.get('tools', 'Default tools'),
-        context=data.get('context', 'Default context'),
-        async_execution=data.get('async_execution', False),
-        config=data.get('config'),
-        output_json=data.get('output_json'),
-        output_pydantic=data.get('output_pydantic'),
-        output_file=data.get('output_file'),
-        callback=data.get('callback'),
-        human_input=data.get('human_input', False),
-        project_id=data.get('project_id')
-    )
-    db.session.add(task)
-    db.session.commit()
-    return jsonify({'id': task.id, 'description': task.description}), 201
+    @ns_project.response(204, 'Project successfully deleted')
+    def delete(self, id):
+        """ Elimina un proyecto existente """
+        project = Project.query.get_or_404(id)
+        db.session.delete(project)
+        db.session.commit()
+        return '', 204
 
-@api.route('/project/<int:project_id>', methods=['GET'])
-def get_project(project_id):
-    project = Project.query.get_or_404(project_id)
-    agents = [{'id': agent.id, 'role': agent.role} for agent in project.agents]
-    tasks = [{'id': task.id, 'description': task.description} for task in project.tasks]
-    return jsonify({'id': project.id, 'name': project.name, 'agents': agents, 'tasks': tasks})
+@ns_project.route('/<int:project_id>/assign_agent')
+class AssignAgentToProjectResource(Resource):
+    @ns_project.expect({'agent_id': fields.Integer(required=True, description='Agent ID')})
+    @ns_project.response(200, 'Agent successfully assigned to project')
+    def post(self, project_id):
+        """ Asigna un agente a un proyecto específico """
+        data = request.json
+        agent_id = data.get('agent_id')
+        project = Project.query.get_or_404(project_id)
+        agent = Agent.query.get_or_404(agent_id)
+        project.agents.append(agent)
+        db.session.commit()
+        return {'message': 'Agent assigned to project'}, 200
+
+@ns_project.route('/<int:project_id>/assign_tool')
+class AssignToolToProjectResource(Resource):
+    @ns_project.expect({'tool_id': fields.Integer(required=True, description='Tool ID')})
+    @ns_project.response(200, 'Tool successfully assigned to project')
+    def post(self, project_id):
+        """ Asigna una herramienta a un proyecto específico """
+        data = request.json
+        tool_id = data.get('tool_id')
+        project = Project.query.get_or_404(project_id)
+        tool = Tool.query.get_or_404(tool_id)
+        project.tools.append(tool)
+        db.session.commit()
+        return {'message': 'Tool assigned to project'}, 200
+
+
+# Agents
+@ns_agent.route('/')
+class AgentListResource(Resource):
+    @ns_agent.marshal_list_with(agent_model)
+    def get(self):
+        """ Retorna la lista de todos los agentes """
+        agents = Agent.query.all()
+        return agents
+
+    @ns_agent.expect(agent_model)
+    @ns_agent.marshal_with(agent_model, code=201)
+    def post(self):
+        """ Crea un nuevo agente """
+        data = request.json
+        agent = Agent(**data)
+        db.session.add(agent)
+        db.session.commit()
+        return agent, 201
+
+@ns_agent.route('/<int:id>')
+@ns_agent.response(404, 'Agent not found')
+class AgentResource(Resource):
+    @ns_agent.marshal_with(agent_model)
+    def get(self, id):
+        """ Retorna detalles de un agente específico """
+        agent = Agent.query.get_or_404(id)
+        return agent
+
+    @ns_agent.expect(agent_model)
+    @ns_agent.marshal_with(agent_model)
+    def put(self, id):
+        """ Actualiza un agente existente """
+        agent = Agent.query.get_or_404(id)
+        data = request.json
+        agent.update(data)
+        db.session.commit()
+        return agent
+
+    @ns_agent.response(204, 'Agent successfully deleted')
+    def delete(self, id):
+        """ Elimina un agente existente """
+        agent = Agent.query.get_or_404(id)
+        db.session.delete(agent)
+        db.session.commit()
+        return '', 204
+
+
+# Tools
+@ns_tool.route('/')
+class ToolListResource(Resource):
+    @ns_tool.marshal_list_with(tool_model)
+    def get(self):
+        """ Retorna la lista de todas las herramientas """
+        tools = Tool.query.all()
+        return tools
+
+    @ns_tool.expect(tool_model)
+    @ns_tool.marshal_with(tool_model, code=201)
+    def post(self):
+        """ Crea una nueva herramienta """
+        data = request.json
+        tool = Tool(**data)
+        db.session.add(tool)
+        db.session.commit()
+        return tool, 201
+
+@ns_tool.route('/<int:id>')
+@ns_tool.response(404, 'Tool not found')
+class ToolResource(Resource):
+    @ns_tool.marshal_with(tool_model)
+    def get(self, id):
+        """ Retorna detalles de una herramienta específica """
+        tool = Tool.query.get_or_404(id)
+        return tool
+
+    @ns_tool.expect(tool_model)
+    @ns_tool.marshal_with(tool_model)
+    def put(self, id):
+        """ Actualiza una herramienta existente """
+        tool = Tool.query.get_or_404(id)
+        data = request.json
+        tool.update(data)
+        db.session.commit()
+        return tool
+
+    @ns_tool.response(204, 'Tool successfully deleted')
+    def delete(self, id):
+        """ Elimina una herramienta existente """
+        tool = Tool.query.get_or_404(id)
+        db.session.delete(tool)
+        db.session.commit()
+        return '', 204
+
+
+# Tasks
+@ns_task.route('/')
+class TaskListResource(Resource):
+    @ns_task.marshal_list_with(task_model)
+    def get(self):
+        """ Retorna la lista de todas las tareas """
+        tasks = Task.query.all()
+        return tasks
+
+    @ns_task.expect(task_model)
+    @ns_task.marshal_with(task_model, code=201)
+    def post(self):
+        """ Crea una nueva tarea """
+        data = request.json
+        task = Task(**data)
+        db.session.add(task)
+        db.session.commit()
+        return task, 201
+
+@ns_task.route('/<int:id>')
+@ns_task.response(404, 'Task not found')
+class TaskResource(Resource):
+    @ns_task.marshal_with(task_model)
+    def get(self, id):
+        """ Retorna detalles de una tarea específica """
+        task = Task.query.get_or_404(id)
+        return task
+
+    @ns_task.expect(task_model)
+    @ns_task.marshal_with(task_model)
+    def put(self, id):
+        """ Actualiza una tarea existente """
+        task = Task.query.get_or_404(id)
+        data = request.json
+        task.update(data)
+        db.session.commit()
+        return task
+
+    @ns_task.response(204, 'Task successfully deleted')
+    def delete(self, id):
+        """ Elimina una tarea existente """
+        task = Task.query.get_or_404(id)
+        db.session.delete(task)
+        db.session.commit()
+        return '', 204
