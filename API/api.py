@@ -1,5 +1,5 @@
 from flask import Blueprint, request
-from flask_restx import Api, Resource, fields
+from flask_restx import Api, Resource, fields, Namespace
 from models import db, Project, Agent, Task, Tool
 
 # Blueprint para la API
@@ -10,23 +10,23 @@ api = Api(api_bp, version='1.0', title='Project API', description='API endpoints
 project_model = api.model('Project', {
     'name': fields.String(required=True, description='Project Name'),
     'process': fields.String(description='Project Process'),
-    'verbose': fields.Boolean(description='Verbose'),
+    'verbose': fields.Boolean(description='Verbose', default=False),
     'manager_llm': fields.String(description='Manager LLM'),
     'function_calling_llm': fields.String(description='Function Calling LLM'),
-    'config': fields.Raw(description='Project Configuration'),
+    'config': fields.String(description='Project Configuration'),
     'max_rpm': fields.Integer(description='Max RPM'),
     'language': fields.String(description='Language'),
     'language_file': fields.String(description='Language File'),
-    'memory': fields.Raw(description='Memory'),
-    'cache': fields.Boolean(description='Cache'),
-    'embedder': fields.Raw(description='Embedder'),
-    'full_output': fields.Boolean(description='Full Output'),
+    'memory': fields.String(description='Memory'),
+    'cache': fields.Boolean(description='Cache', default=False),
+    'embedder': fields.String(description='Embedder'),
+    'full_output': fields.Boolean(description='Full Output', default=False),
     'step_callback': fields.String(description='Step Callback'),
     'task_callback': fields.String(description='Task Callback'),
-    'share_crew': fields.Boolean(description='Share Crew'),
+    'share_crew': fields.Boolean(description='Share Crew', default=False),
     'output_log_file': fields.String(description='Output Log File'),
     'manager_agent_id': fields.Integer(description='Manager Agent ID'),
-    'manager_callbacks': fields.Raw(description='Manager Callbacks'),
+    'manager_callbacks': fields.String(description='Manager Callbacks'),
     'prompt_file': fields.String(description='Prompt File')
 })
 
@@ -71,6 +71,37 @@ tool_model = api.model('Tool', {
     'description': fields.String(description='Tool Description')
 })
 
+# Simple models
+task_simple_model = api.model('TaskSimple', {
+    'id': fields.Integer(description='Task ID'),
+    'name': fields.String(description='Task Name'),
+    'description': fields.String(description='Task Description'),
+})
+
+agent_simple_model = api.model('AgentSimple', {
+    'id': fields.Integer(description='Agent ID'),
+    'role': fields.String(description='Agent Role'),
+    'goal': fields.String(description='Agent Goal'),
+})
+
+tool_simple_model = api.model('ToolSimple', {
+    'id': fields.Integer(description='Tool ID'),
+    'name': fields.String(description='Tool Name'),
+    'description': fields.String(description='Tool Description'),
+})
+
+# Modifica el modelo del proyecto para incluir listas de relaciones
+project_detailed_model = api.inherit('ProjectDetailed', project_model, {
+    'tasks': fields.List(fields.Nested(task_simple_model)),
+    'agents': fields.List(fields.Nested(agent_simple_model)),
+    'tools': fields.List(fields.Nested(tool_simple_model)),
+})
+
+agent_task_assignment_model = api.model('AgentTaskAssignment', {
+    'agent_id': fields.Integer(required=True, description='Agent ID')
+})
+
+
 # Espacios de nombres (namespaces) para cada recurso
 ns_project = api.namespace('projects', description='Project operations')
 ns_agent = api.namespace('agents', description='Agent operations')
@@ -101,11 +132,37 @@ class ProjectListResource(Resource):
 @ns_project.route('/<int:id>')
 @ns_project.response(404, 'Project not found')
 class ProjectResource(Resource):
-    @ns_project.marshal_with(project_model)
+    @ns_project.marshal_with(project_detailed_model)
     def get(self, id):
-        """ Return details of a specific project """
+        """ Return details of a specific project including tasks, agents, and tools """
         project = Project.query.get_or_404(id)
-        return project
+        project_data = {
+            'id': project.id,
+            'name': project.name,
+            'process': project.process,
+            'verbose': project.verbose,
+            'manager_llm': project.manager_llm,
+            'function_calling_llm': project.function_calling_llm,
+            'config': project.config,
+            'max_rpm': project.max_rpm,
+            'language': project.language,
+            'language_file': project.language_file,
+            'memory': project.memory,
+            'cache': project.cache,
+            'embedder': project.embedder,
+            'full_output': project.full_output,
+            'step_callback': project.step_callback,
+            'task_callback': project.task_callback,
+            'share_crew': project.share_crew,
+            'output_log_file': project.output_log_file,
+            'manager_agent_id': project.manager_agent_id,
+            'manager_callbacks': project.manager_callbacks,
+            'prompt_file': project.prompt_file,
+            'tasks': [{'id': task.id, 'name': task.name, 'description': task.description} for task in project.tasks],
+            'agents': [{'id': agent.id, 'role': agent.role, 'goal': agent.goal} for agent in project.agents],
+            'tools': [{'id': tool.id, 'name': tool.name, 'description': tool.description} for tool in project.tools]
+        }
+        return project_data
 
     @ns_project.expect(project_model)
     @ns_project.marshal_with(project_model)
@@ -113,7 +170,9 @@ class ProjectResource(Resource):
         """ Update an existing project """
         project = Project.query.get_or_404(id)
         data = request.json
-        project.update(data)
+        for key, value in data.items():
+            if hasattr(project, key): 
+                setattr(project, key, value)
         db.session.commit()
         return project
 
@@ -132,7 +191,11 @@ class AgentListResource(Resource):
     def get(self):
         """ Return the list of all agents """
         agents = Agent.query.all()
-        return agents
+        simplified_agents = [
+            {'id': agent.id, 'role': agent.role, 'goal': agent.goal}
+            for agent in agents
+        ]
+        return simplified_agents
 
     @ns_agent.expect(agent_model)
     @ns_agent.marshal_with(agent_model, code=201)
@@ -159,7 +222,9 @@ class AgentResource(Resource):
         """ Update an existing agent """
         agent = Agent.query.get_or_404(id)
         data = request.json
-        agent.update(data)
+        for key, value in data.items():
+            if hasattr(agent, key): 
+                setattr(agent, key, value)
         db.session.commit()
         return agent
 
@@ -205,7 +270,9 @@ class ToolResource(Resource):
         """ Update an existing tool """
         tool = Tool.query.get_or_404(id)
         data = request.json
-        tool.update(data)
+        for key, value in data.items():
+            if hasattr(tool, key): 
+                setattr(tool, key, value)
         db.session.commit()
         return tool
 
@@ -241,9 +308,30 @@ class TaskListResource(Resource):
 class TaskResource(Resource):
     @ns_task.marshal_with(task_model)
     def get(self, id):
-        """ Returns details of a specific task """
+        """ Return details of a specific task including the project it belongs to """
         task = Task.query.get_or_404(id)
-        return task
+        task_data = {
+            'id': task.id,
+            'name': task.name,
+            'agent_id': task.agent_id,
+            'project_id': task.project_id,
+            'description': task.description,
+            'expected_output': task.expected_output,
+            'tools': task.tools,
+            'context': task.context,
+            'async_execution': task.async_execution,
+            'config': task.config,
+            'output_json': task.output_json,
+            'output_pydantic': task.output_pydantic,
+            'output_file': task.output_file,
+            'callback': task.callback,
+            'human_input': task.human_input,
+            'project': {
+                'id': task.project.id,
+                'name': task.project.name
+            } if task.project else None
+        }
+        return task_data
 
     @ns_task.expect(task_model)
     @ns_task.marshal_with(task_model)
@@ -251,7 +339,9 @@ class TaskResource(Resource):
         """ Update an existing task """
         task = Task.query.get_or_404(id)
         data = request.json
-        task.update(data)
+        for key, value in data.items():
+            if hasattr(task, key): 
+                setattr(task, key, value)
         db.session.commit()
         return task
 
@@ -266,31 +356,68 @@ class TaskResource(Resource):
 # Asignación de agentes y herramientas a proyectos
 @ns_project.route('/<int:project_id>/assign_agent')
 class AssignAgentToProjectResource(Resource):
-    @ns_project.expect({'agent_id': fields.Integer(required=True, description='Agent ID')})
+    @ns_project.expect(api.model('AgentAssignment', {
+        'agent_id': fields.Integer(required=True, description='Agent ID')
+    }))
     @ns_project.response(200, 'Agent successfully assigned to project')
     def post(self, project_id):
-        """ Asign an agent to a specific project """
+        """ Assign an agent to a specific project """
         data = request.json
-        agent_id = data.get('agent_id')
+        if not data or 'agent_id' not in data:
+            api.abort(400, "Invalid request. Must include agent_id in the JSON body.")
+        
+        agent_id = data['agent_id']
         project = Project.query.get_or_404(project_id)
         agent = Agent.query.get_or_404(agent_id)
-        project.agents.append(agent)
-        db.session.commit()
-        return {'message': 'Agent assigned to project'}, 200
+        
+        if agent not in project.agents:
+            project.agents.append(agent)
+            db.session.commit()
+            return {'message': 'Agent successfully assigned to project'}, 200
+        else:
+            return {'message': 'Agent already assigned to project'}, 200
 
 @ns_project.route('/<int:project_id>/assign_tool')
 class AssignToolToProjectResource(Resource):
-    @ns_project.expect({'tool_id': fields.Integer(required=True, description='Tool ID')})
+    @ns_project.expect(api.model('ToolAssignment', {
+        'tool_id': fields.Integer(required=True, description='Tool ID')
+    }))
     @ns_project.response(200, 'Tool successfully assigned to project')
     def post(self, project_id):
-        """ Asign a tool to a specific project """
+        """ Assign a tool to a specific project """
         data = request.json
-        tool_id = data.get('tool_id')
+        if not data or 'tool_id' not in data:
+            api.abort(400, "Invalid request. Must include tool_id in the JSON body.")
+        
+        tool_id = data['tool_id']
         project = Project.query.get_or_404(project_id)
         tool = Tool.query.get_or_404(tool_id)
-        project.tools.append(tool)
+        
+        if tool not in project.tools:
+            project.tools.append(tool)
+            db.session.commit()
+            return {'message': 'Tool successfully assigned to project'}, 200
+        else:
+            return {'message': 'Tool already assigned to project'}, 200
+
+@ns_task.route('/<int:task_id>/assign_agent')
+class AssignAgentToTaskResource(Resource):
+    @ns_task.expect(agent_task_assignment_model)
+    @ns_task.response(200, 'Agent successfully assigned to task')
+    def post(self, task_id):
+        """ Asigna un agente a una tarea específica """
+        data = request.json
+        if not data or 'agent_id' not in data:
+            api.abort(400, "Invalid request. Must include agent_id in the JSON body.")
+        
+        agent_id = data['agent_id']
+        task = Task.query.get_or_404(task_id)
+        agent = Agent.query.get_or_404(agent_id)
+        
+        task.agent_id = agent_id
         db.session.commit()
-        return {'message': 'Tool assigned to project'}, 200
+        return {'message': 'Agente asignado a la tarea'}, 200
+
 
 # Registra los namespaces en la aplicación Flask
 api.add_namespace(ns_project)
@@ -298,6 +425,4 @@ api.add_namespace(ns_agent)
 api.add_namespace(ns_task)
 api.add_namespace(ns_tool)
 
-# No es necesario iniciar la aplicación o ejecutarla aquí, este archivo solo define los endpoints y modelos
 
-# Asegúrate de que db y los modelos estén importados correctamente desde models.py

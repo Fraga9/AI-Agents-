@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
-from flask_restx import Api, Resource, fields
+from flask_restx import api, Resource, fields
 from models import db, Project, Agent, Task, Tool
-from api import ns_project, ns_agent, ns_task, ns_tool, project_model, agent_model, task_model, tool_model
+from api import ns_project, ns_agent, ns_task, ns_tool, project_model, agent_model, task_model, tool_model, project_detailed_model, agent_detailed_model, task_detailed_model, tool_detailed_model, agent_task_assignment_model
 
 # Projects
 @ns_project.route('/')
@@ -25,11 +25,37 @@ class ProjectListResource(Resource):
 @ns_project.route('/<int:id>')
 @ns_project.response(404, 'Project not found')
 class ProjectResource(Resource):
-    @ns_project.marshal_with(project_model)
+    @ns_project.marshal_with(project_detailed_model)
     def get(self, id):
         """ Retorna detalles de un proyecto específico """
         project = Project.query.get_or_404(id)
-        return project
+        project_data = {
+            'id': project.id,
+            'name': project.name,
+            'process': project.process,
+            'verbose': project.verbose,
+            'manager_llm': project.manager_llm,
+            'function_calling_llm': project.function_calling_llm,
+            'config': project.config,
+            'max_rpm': project.max_rpm,
+            'language': project.language,
+            'language_file': project.language_file,
+            'memory': project.memory,
+            'cache': project.cache,
+            'embedder': project.embedder,
+            'full_output': project.full_output,
+            'step_callback': project.step_callback,
+            'task_callback': project.task_callback,
+            'share_crew': project.share_crew,
+            'output_log_file': project.output_log_file,
+            'manager_agent_id': project.manager_agent_id,
+            'manager_callbacks': project.manager_callbacks,
+            'prompt_file': project.prompt_file,
+            'tasks': [{'id': task.id, 'name': task.name, 'description': task.description} for task in project.tasks],
+            'agents': [{'id': agent.id, 'role': agent.role, 'goal': agent.goal} for agent in project.agents],
+            'tools': [{'id': tool.id, 'name': tool.name, 'description': tool.description} for tool in project.tools]
+        }
+        return project_data
 
     @ns_project.expect(project_model)
     @ns_project.marshal_with(project_model)
@@ -37,7 +63,9 @@ class ProjectResource(Resource):
         """ Actualiza un proyecto existente """
         project = Project.query.get_or_404(id)
         data = request.json
-        project.update(data)
+        for key, value in data.items():
+            if hasattr(project, key): 
+                setattr(project, key, value)
         db.session.commit()
         return project
 
@@ -49,6 +77,7 @@ class ProjectResource(Resource):
         db.session.commit()
         return '', 204
 
+# Asignación de agentes a proyectos
 @ns_project.route('/<int:project_id>/assign_agent')
 class AssignAgentToProjectResource(Resource):
     @ns_project.expect({'agent_id': fields.Integer(required=True, description='Agent ID')})
@@ -56,13 +85,21 @@ class AssignAgentToProjectResource(Resource):
     def post(self, project_id):
         """ Asigna un agente a un proyecto específico """
         data = request.json
-        agent_id = data.get('agent_id')
+        if not data or 'agent_id' not in data:
+            api.abort(400, "Invalid request. Must include agent_id in the JSON body.")
+        
+        agent_id = data['agent_id']
         project = Project.query.get_or_404(project_id)
         agent = Agent.query.get_or_404(agent_id)
-        project.agents.append(agent)
-        db.session.commit()
-        return {'message': 'Agent assigned to project'}, 200
+        
+        if agent not in project.agents:
+            project.agents.append(agent)
+            db.session.commit()
+            return {'message': 'Agente asignado al proyecto'}, 200
+        else:
+            return {'message': 'Agente ya asignado al proyecto'}, 200
 
+# Asignación de herramientas a proyectos
 @ns_project.route('/<int:project_id>/assign_tool')
 class AssignToolToProjectResource(Resource):
     @ns_project.expect({'tool_id': fields.Integer(required=True, description='Tool ID')})
@@ -70,12 +107,20 @@ class AssignToolToProjectResource(Resource):
     def post(self, project_id):
         """ Asigna una herramienta a un proyecto específico """
         data = request.json
-        tool_id = data.get('tool_id')
+        if not data or 'tool_id' not in data:
+            api.abort(400, "Invalid request. Must include tool_id in the JSON body.")
+        
+        tool_id = data['tool_id']
         project = Project.query.get_or_404(project_id)
         tool = Tool.query.get_or_404(tool_id)
-        project.tools.append(tool)
-        db.session.commit()
-        return {'message': 'Tool assigned to project'}, 200
+        
+        if tool not in project.tools:
+            project.tools.append(tool)
+            db.session.commit()
+            return {'message': 'Herramienta asignada al proyecto'}, 200
+        else:
+            return {'message': 'Herramienta ya asignada al proyecto'}, 200
+
 
 
 # Agents
@@ -112,7 +157,9 @@ class AgentResource(Resource):
         """ Actualiza un agente existente """
         agent = Agent.query.get_or_404(id)
         data = request.json
-        agent.update(data)
+        for key, value in data.items():
+            if hasattr(agent, key): 
+                setattr(agent, key, value)
         db.session.commit()
         return agent
 
@@ -159,7 +206,9 @@ class ToolResource(Resource):
         """ Actualiza una herramienta existente """
         tool = Tool.query.get_or_404(id)
         data = request.json
-        tool.update(data)
+        for key, value in data.items():
+            if hasattr(tool, key): 
+                setattr(tool, key, value)
         db.session.commit()
         return tool
 
@@ -203,10 +252,12 @@ class TaskResource(Resource):
     @ns_task.expect(task_model)
     @ns_task.marshal_with(task_model)
     def put(self, id):
-        """ Actualiza una tarea existente """
+        """ Update an existing task """
         task = Task.query.get_or_404(id)
         data = request.json
-        task.update(data)
+        for key, value in data.items():
+            if hasattr(task, key): 
+                setattr(task, key, value)
         db.session.commit()
         return task
 
@@ -217,3 +268,21 @@ class TaskResource(Resource):
         db.session.delete(task)
         db.session.commit()
         return '', 204
+
+@ns_task.route('/<int:task_id>/assign_agent')
+class AssignAgentToTaskResource(Resource):
+    @ns_task.expect(agent_task_assignment_model)
+    @ns_task.response(200, 'Agent successfully assigned to task')
+    def post(self, task_id):
+        """ Asigna un agente a una tarea específica """
+        data = request.json
+        if not data or 'agent_id' not in data:
+            api.abort(400, "Invalid request. Must include agent_id in the JSON body.")
+        
+        agent_id = data['agent_id']
+        task = Task.query.get_or_404(task_id)
+        agent = Agent.query.get_or_404(agent_id)
+        
+        task.agent_id = agent_id
+        db.session.commit()
+        return {'message': 'Agente asignado a la tarea'}, 200

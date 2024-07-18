@@ -18,18 +18,18 @@ tools_projects = db.Table(
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    tasks = db.relationship("Task", backref="dashboard", lazy=True)
+    tasks = db.relationship("Task", backref="project", lazy=True)
     process = db.Column(db.String(100), nullable=True)  # Optional
     verbose = db.Column(db.Boolean, nullable=True)  # Optional
     manager_llm = db.Column(db.String(50), nullable=True)  # Optional, required for hierarchical process
     function_calling_llm = db.Column(db.String(200), nullable=True)  # Optional
-    config = db.Column(db.JSON, nullable=True)  # Optional, JSON or Dict[str, Any]
+    config = db.Column(db.String(200), nullable=True)  # Optional, JSON or Dict[str, Any]
     max_rpm = db.Column(db.Integer, nullable=True)  # Optional
     language = db.Column(db.String(50), nullable=True)  # Optional, defaults to English
     language_file = db.Column(db.String(200), nullable=True)  # Optional
-    memory = db.Column(db.JSON, nullable=True)  # Optional, for execution memories
+    memory = db.Column(db.String(200), nullable=True)  # Optional, for execution memories
     cache = db.Column(db.Boolean, nullable=True)  # Optional
-    embedder = db.Column(db.JSON, nullable=True)  # Optional, configuration for the embedder
+    embedder = db.Column(db.String(200), nullable=True)  # Optional, configuration for the embedder
     full_output = db.Column(db.Boolean, nullable=True)  # Optional
     step_callback = db.Column(db.String(200), nullable=True)  # Optional, won't override agent-specific callback
     task_callback = db.Column(db.String(200), nullable=True)  # Optional
@@ -37,7 +37,7 @@ class Project(db.Model):
     output_log_file = db.Column(db.String(200), nullable=True)  # Optional, True or path to log file
     manager_agent_id = db.Column(db.Integer, db.ForeignKey("agent.id"), nullable=True)
     manager = db.relationship("Agent", backref="managed_projects", foreign_keys=[manager_agent_id])
-    manager_callbacks = db.Column(db.JSON, nullable=True)  # Optional, list of callback handlers for manager
+    manager_callbacks = db.Column(db.String(200), nullable=True)  # Optional, list of callback handlers for manager
     prompt_file = db.Column(db.String(200), nullable=True)  # Optional, path to prompt JSON file
 
 class Agent(db.Model):
@@ -55,9 +55,10 @@ class Agent(db.Model):
     allow_delegation = db.Column(db.Boolean, default=True, nullable=True)
     step_callback = db.Column(db.String(200), nullable=True)
     cache = db.Column(db.Boolean, default=True, nullable=True)
-    system_template = db.Column(db.String(200), nullable=True)
+    system_template = db.Column(db.String(200), nullable=True)  
     prompt_template = db.Column(db.String(200), nullable=True)
     response_template = db.Column(db.String(200), nullable=True)
+    tasks = db.relationship('Task', back_populates='agent')
     projects = db.relationship('Project', secondary=agents_projects, lazy='subquery', backref=db.backref('agents', lazy=True))
 
 class Task(db.Model):
@@ -65,7 +66,7 @@ class Task(db.Model):
     name = db.Column(db.String(100), nullable=False)  # Name of the task
     description = db.Column(db.String(200), nullable=False)  # Description of the task
     agent_id = db.Column(db.Integer, db.ForeignKey('agent.id'), nullable=False)
-    agent = db.relationship('Agent', backref='tasks')
+    agent = db.relationship('Agent', back_populates='tasks')
     expected_output = db.Column(db.String(200), nullable=False)  # A detailed description of what the tasks output should look like
     tools = db.Column(db.String(200), nullable=True)  # The functions or capabilities that the agent will use to complete the task
     context = db.Column(db.String(200), nullable=True)  # Specifies tasks whose outputs are used as inputs to this task
