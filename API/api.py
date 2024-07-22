@@ -8,6 +8,7 @@ api = Api(api_bp, version='1.0', title='Project API', description='API endpoints
 
 # Modelos utilizando api.model
 project_model = api.model('Project', {
+    'id': fields.Integer(description='Project ID'),
     'name': fields.String(required=True, description='Project Name'),
     'process': fields.String(description='Project Process'),
     'verbose': fields.Boolean(description='Verbose', default=False),
@@ -31,6 +32,7 @@ project_model = api.model('Project', {
 })
 
 agent_model = api.model('Agent', {
+    'id': fields.Integer(description='Agent ID'),
     'role': fields.String(required=True, description='Agent Role'),
     'goal': fields.String(description='Agent Goal'),
     'backstory': fields.String(description='Agent Backstory'),
@@ -50,6 +52,7 @@ agent_model = api.model('Agent', {
 })
 
 task_model = api.model('Task', {
+    'id': fields.Integer(description='Task ID'),
     'name': fields.String(required=True, description='Task Name'),
     'description': fields.String(required=True, description='Task Description'),
     'project_id': fields.Integer(required=True, description='Project ID'),
@@ -67,6 +70,7 @@ task_model = api.model('Task', {
 })
 
 tool_model = api.model('Tool', {
+    'id': fields.Integer(description='Tool ID'),
     'name': fields.String(required=True, description='Tool Name'),
     'description': fields.String(description='Tool Description')
 })
