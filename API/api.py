@@ -7,8 +7,7 @@ api_bp = Blueprint('api', __name__)
 api = Api(api_bp, version='1.0', title='Project API', description='API endpoints for managing projects, agents, tasks, and tools')
 
 # Modelos utilizando api.model
-project_model = api.model('Project', {
-    'id': fields.Integer(description='Project ID'),
+project_input_model = api.model('Project Input', {
     'name': fields.String(required=True, description='Project Name'),
     'process': fields.String(description='Project Process'),
     'verbose': fields.Boolean(description='Verbose', default=False),
@@ -31,8 +30,12 @@ project_model = api.model('Project', {
     'prompt_file': fields.String(description='Prompt File')
 })
 
-agent_model = api.model('Agent', {
-    'id': fields.Integer(description='Agent ID'),
+project_output_model = api.inherit('Project Output', project_input_model, {
+    'id': fields.Integer(description='Project ID')
+})
+
+
+agent_input_model = api.model('Agent Input', {
     'role': fields.String(required=True, description='Agent Role'),
     'goal': fields.String(description='Agent Goal'),
     'backstory': fields.String(description='Agent Backstory'),
@@ -51,8 +54,12 @@ agent_model = api.model('Agent', {
     'response_template': fields.String(description='Response Template')
 })
 
-task_model = api.model('Task', {
-    'id': fields.Integer(description='Task ID'),
+agent_output_model = api.inherit('Agent Output', agent_input_model, {
+    'id': fields.Integer(description='Agent ID')
+})
+
+
+task_input_model = api.model('Task Input', {
     'name': fields.String(required=True, description='Task Name'),
     'description': fields.String(required=True, description='Task Description'),
     'project_id': fields.Integer(required=True, description='Project ID'),
@@ -69,11 +76,21 @@ task_model = api.model('Task', {
     'human_input': fields.Boolean(description='Requires Human Input'),
 })
 
-tool_model = api.model('Tool', {
+task_output_model = api.inherit('Task Output', task_input_model, {
+    'id': fields.Integer(description='Task ID')
+})
+
+
+tool_input_model = api.model('Tool Input', {
     'id': fields.Integer(description='Tool ID'),
     'name': fields.String(required=True, description='Tool Name'),
     'description': fields.String(description='Tool Description')
 })
+
+tool_output_model = api.inherit('Tool Output', tool_input_model, {
+    'id': fields.Integer(description='Tool ID')
+})
+
 
 # Simple models
 task_simple_model = api.model('TaskSimple', {
@@ -95,7 +112,7 @@ tool_simple_model = api.model('ToolSimple', {
 })
 
 # Modifica el modelo del proyecto para incluir listas de relaciones
-project_detailed_model = api.inherit('ProjectDetailed', project_model, {
+project_detailed_model = api.inherit('ProjectDetailed', project_output_model, {
     'tasks': fields.List(fields.Nested(task_simple_model)),
     'agents': fields.List(fields.Nested(agent_simple_model)),
     'tools': fields.List(fields.Nested(tool_simple_model)),
@@ -117,14 +134,14 @@ ns_tool = api.namespace('tools', description='Tools operations')
 # Project Resources
 @ns_project.route('/')
 class ProjectListResource(Resource):
-    @ns_project.marshal_list_with(project_model)
+    @ns_project.marshal_list_with(project_output_model)
     def get(self):
         """ Return the list of all projects """
         projects = Project.query.all()
         return projects
 
-    @ns_project.expect(project_model)
-    @ns_project.marshal_with(project_model, code=201)
+    @ns_project.expect(project_input_model)
+    @ns_project.marshal_with(project_output_model, code=201)
     def post(self):
         """ Create a new project """
         data = request.json
@@ -168,8 +185,8 @@ class ProjectResource(Resource):
         }
         return project_data
 
-    @ns_project.expect(project_model)
-    @ns_project.marshal_with(project_model)
+    @ns_project.expect(project_input_model)
+    @ns_project.marshal_with(project_output_model)
     def put(self, id):
         """ Update an existing project """
         project = Project.query.get_or_404(id)
@@ -191,18 +208,14 @@ class ProjectResource(Resource):
 # Agent Resources
 @ns_agent.route('/')
 class AgentListResource(Resource):
-    @ns_agent.marshal_list_with(agent_model)
+    @ns_agent.marshal_list_with(agent_output_model)
     def get(self):
         """ Return the list of all agents """
         agents = Agent.query.all()
-        simplified_agents = [
-            {'id': agent.id, 'role': agent.role, 'goal': agent.goal}
-            for agent in agents
-        ]
-        return simplified_agents
+        return agents
 
-    @ns_agent.expect(agent_model)
-    @ns_agent.marshal_with(agent_model, code=201)
+    @ns_agent.expect(agent_input_model)
+    @ns_agent.marshal_with(agent_output_model, code=201)
     def post(self):
         """ Create a new agent """
         data = request.json
@@ -214,14 +227,14 @@ class AgentListResource(Resource):
 @ns_agent.route('/<int:id>')
 @ns_agent.response(404, 'Agent not found')
 class AgentResource(Resource):
-    @ns_agent.marshal_with(agent_model)
+    @ns_agent.marshal_with(agent_output_model)
     def get(self, id):
         """ Return details of a specific agent """
         agent = Agent.query.get_or_404(id)
         return agent
 
-    @ns_agent.expect(agent_model)
-    @ns_agent.marshal_with(agent_model)
+    @ns_agent.expect(agent_input_model)
+    @ns_agent.marshal_with(agent_output_model)
     def put(self, id):
         """ Update an existing agent """
         agent = Agent.query.get_or_404(id)
@@ -243,14 +256,14 @@ class AgentResource(Resource):
 # Tool Resources
 @ns_tool.route('/')
 class ToolListResource(Resource):
-    @ns_tool.marshal_list_with(tool_model)
+    @ns_tool.marshal_list_with(tool_output_model)
     def get(self):
         """ Return the list of all tools """
         tools = Tool.query.all()
         return tools
 
-    @ns_tool.expect(tool_model)
-    @ns_tool.marshal_with(tool_model, code=201)
+    @ns_tool.expect(tool_input_model)
+    @ns_tool.marshal_with(tool_output_model, code=201)
     def post(self):
         """ Create a new tool """
         data = request.json
@@ -262,14 +275,14 @@ class ToolListResource(Resource):
 @ns_tool.route('/<int:id>')
 @ns_tool.response(404, 'Tool not found')
 class ToolResource(Resource):
-    @ns_tool.marshal_with(tool_model)
+    @ns_tool.marshal_with(tool_output_model)
     def get(self, id):
         """ Return details of a specific tool """
         tool = Tool.query.get_or_404(id)
         return tool
 
-    @ns_tool.expect(tool_model)
-    @ns_tool.marshal_with(tool_model)
+    @ns_tool.expect(tool_input_model)
+    @ns_tool.marshal_with(tool_output_model)
     def put(self, id):
         """ Update an existing tool """
         tool = Tool.query.get_or_404(id)
@@ -291,14 +304,14 @@ class ToolResource(Resource):
 # Task Resources
 @ns_task.route('/')
 class TaskListResource(Resource):
-    @ns_task.marshal_list_with(task_model)
+    @ns_task.marshal_list_with(task_output_model)
     def get(self):
         """ Return the list of all tasks """
         tasks = Task.query.all()
         return tasks
 
-    @ns_task.expect(task_model)
-    @ns_task.marshal_with(task_model, code=201)
+    @ns_task.expect(task_input_model)
+    @ns_task.marshal_with(task_output_model, code=201)
     def post(self):
         """ Create a new task """
         data = request.json
@@ -310,7 +323,7 @@ class TaskListResource(Resource):
 @ns_task.route('/<int:id>')
 @ns_task.response(404, 'Task not found')
 class TaskResource(Resource):
-    @ns_task.marshal_with(task_model)
+    @ns_task.marshal_with(task_output_model)
     def get(self, id):
         """ Return details of a specific task including the project it belongs to """
         task = Task.query.get_or_404(id)
@@ -337,8 +350,8 @@ class TaskResource(Resource):
         }
         return task_data
 
-    @ns_task.expect(task_model)
-    @ns_task.marshal_with(task_model)
+    @ns_task.expect(task_input_model)
+    @ns_task.marshal_with(task_output_model)
     def put(self, id):
         """ Update an existing task """
         task = Task.query.get_or_404(id)

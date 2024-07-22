@@ -16,7 +16,7 @@ tools_projects = db.Table(
 )
 
 class Project(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(100), nullable=False)
     tasks = db.relationship("Task", backref="project", lazy=True)
     process = db.Column(db.String(100), nullable=True)  # Optional
@@ -41,7 +41,7 @@ class Project(db.Model):
     prompt_file = db.Column(db.String(200), nullable=True)  # Optional, path to prompt JSON file
 
 class Agent(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     role = db.Column(db.String(50), nullable=False)
     goal = db.Column(db.String(200), nullable=False)
     backstory = db.Column(db.String(200), nullable=False)
@@ -62,7 +62,7 @@ class Agent(db.Model):
     projects = db.relationship('Project', secondary=agents_projects, lazy='subquery', backref=db.backref('agents', lazy=True))
 
 class Task(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement = True)
     name = db.Column(db.String(100), nullable=False)  # Name of the task
     description = db.Column(db.String(200), nullable=False)  # Description of the task
     agent_id = db.Column(db.Integer, db.ForeignKey('agent.id'), nullable=False)
@@ -80,7 +80,7 @@ class Task(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
 
 class Tool(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(200), nullable=False)
     project = db.relationship('Project', secondary=tools_projects, lazy='subquery', backref=db.backref('tools', lazy=True))
