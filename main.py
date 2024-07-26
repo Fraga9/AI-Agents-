@@ -1,45 +1,33 @@
-from crewai import TaskManager, AgentManager
-from agents import AISoftwareCompanyAgent
-from tasks import AISoftwareCompanyTasks
+from langchain_community.chat_models.azure_openai import AzureChatOpenAI
+from crewai import Agent, Task, Crew, Process
+from flask import Flask, jsonify
+import sqlite3
+from extract_data import data_extraction
 
-agents = AISoftwareCompanyAgent
-tasks = AISoftwareCompanyTasks
-
-
-task_manager = TaskManager() # Initialize the task manager for the simulation
-agent_manager = AgentManager() # Initialize the agent manager for the simulation
-
-#Setting up agents
-boss = agents.boss_agent
-productManager = agents.productManager_agent
-architect = agents.architect_agent
-projectManager = agents.projectManager_agent
-engineer = agents.engineer_agent
-QA = agents.QA_agent
-
-#Setting up tasks
-set_high_level_requirements_task = tasks.set_high_level_requirements_task(boss)
-#
-write_tasks_task = tasks.write_tasks_task(projectManager, [set_high_level_requirements_task])
-assign_tasks_task = tasks.assign_tasks_task(projectManager, [write_tasks_task])
-#
-write_PRD_task = tasks.write_PRD_task(productManager, [assign_tasks_task])
-revise_PRD_task = tasks.revise_PRD_task(productManager, [write_PRD_task])
-#
-write_design_task = tasks.write_design_task(architect, [assign_tasks_task])
-revise_design_task = tasks.revise_design_task(architect, [write_design_task])
-#TODO : what about a task that can be achieved by several agents ?
-#And I guess that they receive orders from Project manager ?
-review_PRD_task = tasks.review_PRD_task(architect, [revise_PRD_task])
-review_code_task = tasks.review_code_task(architect, [debug_code_taskk]) #???
-#
-write_code_task = tasks.write_code_task(engineer, [assign_tasks_task])
-review_code_task = tasks.review_code_task(engineer, [write_code_task])
-debug_code_task = tasks.debug_code_task(engineer, [review_code_task])
-#
-write_tests_task = tasks.write_tests_task(QA, [assign_tasks_task])
-run_tests_task = tasks.run_tests_task(QA, [write_tests_task])
+llm = AzureChatOpenAI(temperature=0, max_tokens=1000,
+                      openai_api_key='some-key',
+                      model_name='gpt-35-turbo',
+                      openai_api_version='some-version',
+                      azure_endpoint='http://10.73.14.148:6257')
 
 
+data = data_extraction
+
+#Extract from each projects
+agents = data_extraction.extract_agents() #dictionary of all agents {id: Agent}
+tasks = data_extraction.extract_tasks(agents) #dictionary of all tasks {id: Task}
+projects = data_extraction.extract_projects(agents, tasks) 
+
+for i, agent in agents.items():
+    print('agent : ', agent.role)
+
+for i, task in tasks.items():
+    print('task : ', task.description, ' Agents : ', task.agent.role)
+
+for key in projects.keys():
+        print('project key : ', key, ' Tasks : ', [task.description for task in projects[key].tasks], ' Agents : ', [agent.role for agent in projects[key].agents])
+
+for key in projects:
+    results = projects[key].kickoff()
 
 
