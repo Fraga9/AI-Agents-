@@ -1,6 +1,8 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, Flask, jsonify
 from flask_restx import Api, Resource, fields, Namespace
 from models import db, Project, Agent, Task, Tool
+from crewai import Crew
+from extract_data import data_extraction
 
 # Blueprint para la API
 api_bp = Blueprint('api', __name__)
@@ -437,6 +439,35 @@ class AssignAgentToTaskResource(Resource):
         db.session.commit()
         return {'message': 'Agente asignado a la tarea'}, 200
 
+
+@ns_project.route('/<int:project_id>/run_project')
+class RunProject(Resource):
+    @ns_project.response(200, 'Project ran succcessfully')
+    @ns_project.response(404, 'Project not found')
+    @ns_project.response(400, 'Project not configured correctly')
+    def post(self, project_id):
+        """ Run the crew for a specific project"""
+        agents = data_extraction.extract_agents()
+        tasks = data_extraction.extract_tasks()
+
+        projects = data_extraction.extract_projects(agents, tasks)
+
+        if project_id not in projects:
+            api.abort(404, "Project not found")
+
+        project_name, project = projects[project_id]
+
+        try:
+            crew_output = project.kickoff()
+            tasks_output = crew_output.tasks_output
+            token_usage = crew_output.token_usage
+            return {
+                'tasks_output': tasks_output,
+                'token_usage': token_usage
+            }, 200     
+        except Exception as e:
+            api.abort(400, f"Error running project: {str(e)}")
+        
 
 # Registra los namespaces en la aplicación Flask
 api.add_namespace(ns_project)
