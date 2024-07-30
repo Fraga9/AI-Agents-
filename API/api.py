@@ -10,6 +10,7 @@ api = Api(api_bp, version='1.0', title='Project API', description='API endpoints
 project_input_model = api.model('Project Input', {
     'name': fields.String(required=True, description='Project Name'),
     'process': fields.String(description='Project Process'),
+    'context': fields.String(description='Project Context'),	
     'verbose': fields.Boolean(description='Verbose', default=False),
     'manager_llm': fields.String(description='Manager LLM'),
     'function_calling_llm': fields.String(description='Function Calling LLM'),
@@ -40,7 +41,7 @@ agent_input_model = api.model('Agent Input', {
     'goal': fields.String(description='Agent Goal'),
     'backstory': fields.String(description='Agent Backstory'),
     'llm': fields.String(description='Agent LLM'),
-    'tools': fields.Raw(description='Agent Tools'),
+    'tools_list': fields.List(fields.String, description='Agent Tools List'),  # Cambiado a tools_list
     'function_calling_llm': fields.String(description='Function Calling LLM'),
     'max_iter': fields.Integer(description='Max Iterations'),
     'max_rpm': fields.Integer(description='Max RPM'),
@@ -58,14 +59,14 @@ agent_output_model = api.inherit('Agent Output', agent_input_model, {
     'id': fields.Integer(description='Agent ID')
 })
 
-
 task_input_model = api.model('Task Input', {
     'name': fields.String(required=True, description='Task Name'),
     'description': fields.String(required=True, description='Task Description'),
+    'input': fields.String(description='Input string'),
     'project_id': fields.Integer(required=True, description='Project ID'),
     'agent_id': fields.Integer(required=True, description='Agent ID'),
     'expected_output': fields.String(required=True, description='Expected Output'),
-    'tools': fields.String(description='Task Tools'),
+    'tools_list': fields.List(fields.String, description='Tasks Tools List'),  # Cambiado a tools_list
     'context': fields.String(description='Task Context'),
     'async_execution': fields.Boolean(description='Async Execution'),
     'config': fields.String(description='Task Configuration'),
@@ -331,6 +332,7 @@ class TaskResource(Resource):
             'id': task.id,
             'name': task.name,
             'agent_id': task.agent_id,
+            'context': task.context,
             'project_id': task.project_id,
             'description': task.description,
             'expected_output': task.expected_output,

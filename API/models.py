@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 import os
+import json
 
 db = SQLAlchemy()
 
@@ -19,6 +20,7 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(100), nullable=False)
     tasks = db.relationship("Task", backref="project", lazy=True)
+    context = db.Column(db.String(200), nullable=True)  # Optional, specifies the context of the project
     process = db.Column(db.String(100), nullable=True)  # Optional
     verbose = db.Column(db.Boolean, nullable=True)  # Optional
     manager_llm = db.Column(db.String(50), nullable=True)  # Optional, required for hierarchical process
@@ -46,7 +48,7 @@ class Agent(db.Model):
     goal = db.Column(db.String(200), nullable=False)
     backstory = db.Column(db.String(200), nullable=False)
     llm = db.Column(db.String(50), default=os.getenv("OPENAI_MODEL_NAME", "gpt-4"), nullable=True)
-    tools = db.Column(db.JSON, default=[], nullable=True)
+    tools = db.Column(db.String, default='[]', nullable=True)
     function_calling_llm = db.Column(db.String(200), nullable=True)
     max_iter = db.Column(db.Integer, default=25, nullable=True)
     max_rpm = db.Column(db.Integer, nullable=True)
@@ -61,10 +63,20 @@ class Agent(db.Model):
     tasks = db.relationship('Task', back_populates='agent')
     projects = db.relationship('Project', secondary=agents_projects, lazy='subquery', backref=db.backref('agents', lazy=True))
 
+@property
+def tools_list(self):
+    return json.loads(self.tools)
+
+@tools_list.setter
+def tools_list(self, value):
+    self.tools = json.dumps(value)
+
+
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement = True)
     name = db.Column(db.String(100), nullable=False)  # Name of the task
     description = db.Column(db.String(200), nullable=False)  # Description of the task
+    input = db.Column(db.String(200), nullable=False)  # A detailed description of what the tasks input should look like
     agent_id = db.Column(db.Integer, db.ForeignKey('agent.id'), nullable=False)
     agent = db.relationship('Agent', back_populates='tasks')
     expected_output = db.Column(db.String(200), nullable=False)  # A detailed description of what the tasks output should look like
