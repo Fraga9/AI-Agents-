@@ -1,8 +1,11 @@
 from langchain_community.chat_models.azure_openai import AzureChatOpenAI
 from crewai import Agent, Task, Crew, Process
+from langchain_core.tools import Tool
 from flask import Flask, jsonify
-import sqlite3
 from extract_data import data_extraction
+#Search tools
+from langchain_community.utilities import GoogleSerperAPIWrapper
+
 
 llm = AzureChatOpenAI(temperature=0, max_tokens=1000,
                       openai_api_key='some-key',
@@ -25,9 +28,11 @@ for i, task in tasks.items():
     print('task : ', task.description, ' Agents : ', task.agent.role)
 
 for key in projects.keys():
-        print('project key : ', key, ' Tasks : ', [task.description for task in projects[key].tasks], ' Agents : ', [agent.role for agent in projects[key].agents])
+        print('project key : ', key, ' Tasks : ', [task.description for task in projects[key][1].tasks], ' Agents : ', [agent.role for agent in projects[key][1].agents])
 
 for key in projects:
-    results = projects[key].kickoff()
+    print(f"## Welcome to the Project : {projects[key][0]}")
+    results = projects[key][1].kickoff()
+
 
 

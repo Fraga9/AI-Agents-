@@ -5,6 +5,9 @@ from crewai import Agent, Task, Crew
 from langchain_community.chat_models.azure_openai import AzureChatOpenAI
 from langchain.agents import AgentType, initialize_agent, load_tools
 import importlib
+from langchain_core.tools import Tool
+#Search tools
+from tools.search_tools import SearchTools
 
 llm = AzureChatOpenAI(temperature=0, max_tokens=1000,
                       openai_api_key='some-key',
@@ -19,35 +22,9 @@ class process(Enum):
     seq = "sequential"
 
 class data_extraction():
-    def __init__(self) -> None:
+    def __init__(self):
         pass
 
-    def extract_tools(self):
-        url = 'http://127.0.0.1:5000/tools'
-        response = requests.get(url)
-
-        tools = {}
-        if response.status_code == 200:
-            tools_data = response.json()
-        else:
-            print('tools failure')
-            return {}
-        for i, tool_data in enumerate(tools_data):
-            id = tool_data.get('id')
-            name = tool_data.get('name')
-            tools[id] = name
-            self.dynamic_import(name)
-
-        return tools
-    
-    def dynamic_import(tool_name):
-        try:
-            module = importlib.import_module(tool_name)
-            tool_name = getattr(tool_name, "crewai_tools")
-            globals()[tool_name] = "crewai_tools"
-        except (ImportError, AttributeError) as e:
-            print(f"Error importing crewai_tools from {tool_name}: {e}")
-        
     def extract_agents():
         url = 'http://127.0.0.1:5000/agents'
         response = requests.get(url)
@@ -60,12 +37,19 @@ class data_extraction():
             return {}
         for i, agent_data in enumerate(agents_data):
             id = agent_data.get('id')
+            tools_names = agent_data.get('tools') if isinstance(agent_data.get('tools'), list) else []
+            list_tool = []
+            if "search internet" in tools_names:
+                list_tool.append(SearchTools.search_internet)
+            if "search news" in tools_names:
+                list_tool.append(SearchTools.search_news)
+
             agent = Agent(
                 role=agent_data.get('role'),
                 goal=agent_data.get('goal'),
                 backstory=agent_data.get('backstory'),
                 llm=llm if isinstance(agent_data.get('llm'), str) else llm,
-                tools=agent_data.get('tools') if isinstance(agent_data.get('tools'), list) else [],
+                tools=list_tool,
                 function_calling_llm=agent_data.get('function_calling_llm'),
                 max_iter=agent_data.get('max_iter') if isinstance(agent_data.get('max_iter'), int) else 25,
                 max_rpm=agent_data.get('max_rpm'),
@@ -168,6 +152,6 @@ class data_extraction():
                 prompt_file=project_data.get('prompt_file'),
                 planning=project_data.get('planning'),
             )
-            projects[project_id] = project
+            projects[project_id] = (project_list[i].get('name'), project)
 
         return projects
