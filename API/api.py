@@ -2,6 +2,7 @@ from flask import Blueprint, request, Flask, jsonify
 from flask_restx import Api, Resource, fields, Namespace
 from models import db, Project, Agent, Task, Tool
 from crewai import Crew
+from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import json
 from extract_data import data_extraction
@@ -442,14 +443,14 @@ class AssignAgentToTaskResource(Resource):
         return {'message': 'Agente asignado a la tarea'}, 200
 
 
-
+executor = ThreadPoolExecutor(max_workers=2)
 
 @ns_project.route('/<int:project_id>/run_project')
 class RunProject(Resource):
     @ns_project.response(200, 'Project ran successfully')
     @ns_project.response(404, 'Project not found')
     @ns_project.response(400, 'Project not configured correctly')
-    async def post(self, project_id):
+    def post(self, project_id):
         """ Run the crew for a specific project"""
         agents = data_extraction.extract_agents()
         tasks = data_extraction.extract_tasks()
@@ -462,15 +463,17 @@ class RunProject(Resource):
         project_name, project = projects[project_id]
 
         try:
-            # Run the crew asynchronously
-            crew_output = await asyncio.to_thread(project.kickoff)
+            # Run the crew asynchronously using a thread
+            future = executor.submit(project.kickoff)
+            crew_output = future.result(timeout=60)  # Espera hasta 60 segundos para que se complete
+
             tasks_output = crew_output.tasks_output
             token_usage = crew_output.token_usage
             response = {
                 'tasks_output': tasks_output,
                 'token_usage': token_usage
             }
-            return json.dumps(response), 200  # Convert response to JSON
+            return jsonify(response), 200  # Use jsonify to convert response to JSON
         except Exception as e:
             api.abort(400, f"Error running project: {str(e)}")
         
