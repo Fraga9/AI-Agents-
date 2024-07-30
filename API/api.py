@@ -446,25 +446,29 @@ class AssignAgentToTaskResource(Resource):
 
 @ns_project.route('/<int:project_id>/run_project')
 class RunProjectResource(Resource):
-    def post(self, project_id):
-        """ Run a specific project """
-        agents = data_extraction.extract_agents()
-        tasks = data_extraction.extract_tasks(agents)
-        projects = data_extraction.extract_projects(agents, tasks)
+     def post(self, project_id):
+        try:
+            """ Run a specific project """
+            agents = data_extraction.extract_agents()
+            tasks = data_extraction.extract_tasks(agents)
+            project = data_extraction.extract_projects(tasks)
 
-        if project_id not in projects:
-            return {"message": "Project not found"}, 404
+            if project_id not in project:
+                return {'message': 'Project not found'}, 404
+            
+            project_name, project = project[project_id]
 
-        project_name, project = projects[project_id]
+            crew_output = project.kickoff()
+
+            results = {
+                "token_usage": [task_output.dict() for task_output in crew_output.token_usage] if crew_output.token_usage else None
+            }
+
+            return jsonify(results), 200
+        except Exception as e:
+            return jsonify({"message": "An error ocurred", "error": str(e)}), 500
+
         
-        def run_crew(project):
-            project.kickoff()  # Asegúrate de llamar al método kickoff
-
-        # Ejecutar el proyecto en un hilo separado para no bloquear la respuesta
-        with ThreadPoolExecutor() as executor:
-            executor.submit(run_crew, project)
-        
-        return {"message": f"Project '{project_name}' is running"}, 202
 
         
 
