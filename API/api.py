@@ -2,6 +2,8 @@ from flask import Blueprint, request, Flask, jsonify
 from flask_restx import Api, Resource, fields, Namespace
 from models import db, Project, Agent, Task, Tool
 from crewai import Crew
+import asyncio
+import json
 from extract_data import data_extraction
 
 # Blueprint para la API
@@ -440,12 +442,14 @@ class AssignAgentToTaskResource(Resource):
         return {'message': 'Agente asignado a la tarea'}, 200
 
 
+
+
 @ns_project.route('/<int:project_id>/run_project')
 class RunProject(Resource):
-    @ns_project.response(200, 'Project ran succcessfully')
+    @ns_project.response(200, 'Project ran successfully')
     @ns_project.response(404, 'Project not found')
     @ns_project.response(400, 'Project not configured correctly')
-    def post(self, project_id):
+    async def post(self, project_id):
         """ Run the crew for a specific project"""
         agents = data_extraction.extract_agents()
         tasks = data_extraction.extract_tasks()
@@ -458,13 +462,15 @@ class RunProject(Resource):
         project_name, project = projects[project_id]
 
         try:
-            crew_output = project.kickoff()
+            # Run the crew asynchronously
+            crew_output = await asyncio.to_thread(project.kickoff)
             tasks_output = crew_output.tasks_output
             token_usage = crew_output.token_usage
-            return {
+            response = {
                 'tasks_output': tasks_output,
                 'token_usage': token_usage
-            }, 200     
+            }
+            return json.dumps(response), 200  # Convert response to JSON
         except Exception as e:
             api.abort(400, f"Error running project: {str(e)}")
         
