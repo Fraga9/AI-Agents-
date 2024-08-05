@@ -11,7 +11,7 @@ from extract_data import data_extraction
 api_bp = Blueprint('api', __name__)
 api = Api(api_bp, version='1.0', title='Project API', description='API endpoints for managing projects, agents, tasks, and tools')
 
-# Modelos utilizando api.model
+# Models
 project_input_model = api.model('Project Input', {
     'name': fields.String(required=True, description='Project Name'),
     'process': fields.String(description='Project Process'),
@@ -46,7 +46,7 @@ agent_input_model = api.model('Agent Input', {
     'goal': fields.String(description='Agent Goal'),
     'backstory': fields.String(description='Agent Backstory'),
     'llm': fields.String(description='Agent LLM'),
-    'tools_list': fields.List(fields.String, description='Agent Tools List'),  # Cambiado a tools_list
+    'tools': fields.String(description='Agent Tools'),
     'function_calling_llm': fields.String(description='Function Calling LLM'),
     'max_iter': fields.Integer(description='Max Iterations'),
     'max_rpm': fields.Integer(description='Max RPM'),
@@ -71,7 +71,7 @@ task_input_model = api.model('Task Input', {
     'project_id': fields.Integer(required=True, description='Project ID'),
     'agent_id': fields.Integer(required=True, description='Agent ID'),
     'expected_output': fields.String(required=True, description='Expected Output'),
-    'tools_list': fields.List(fields.String, description='Tasks Tools List'),  # Cambiado a tools_list
+    'tools': fields.String(description='Tools'),
     'context': fields.String(description='Task Context'),
     'async_execution': fields.Boolean(description='Async Execution'),
     'config': fields.String(description='Task Configuration'),
@@ -117,7 +117,7 @@ tool_simple_model = api.model('ToolSimple', {
     'description': fields.String(description='Tool Description'),
 })
 
-# Modifica el modelo del proyecto para incluir listas de relaciones
+# Detailed models
 project_detailed_model = api.inherit('ProjectDetailed', project_output_model, {
     'tasks': fields.List(fields.Nested(task_simple_model)),
     'agents': fields.List(fields.Nested(agent_simple_model)),
@@ -129,13 +129,13 @@ agent_task_assignment_model = api.model('AgentTaskAssignment', {
 })
 
 
-# Espacios de nombres (namespaces) para cada recurso
+# Namespaces 
 ns_project = api.namespace('projects', description='Project operations')
 ns_agent = api.namespace('agents', description='Agent operations')
 ns_task = api.namespace('tasks', description='Task operations')
 ns_tool = api.namespace('tools', description='Tools operations')
 
-# Definición de las clases de recursos para CRUD
+# Define the API routes
 
 # Project Resources
 @ns_project.route('/')
@@ -371,13 +371,13 @@ class TaskResource(Resource):
 
     @ns_task.response(204, 'Task successfully deleted')
     def delete(self, id):
-        """ Elimina una tarea existente """
+        """  Delete an existing task """
         task = Task.query.get_or_404(id)
         db.session.delete(task)
         db.session.commit()
         return '', 204
 
-# Asignación de agentes y herramientas a proyectos
+# Assign Resources
 @ns_project.route('/<int:project_id>/assign_agent')
 class AssignAgentToProjectResource(Resource):
     @ns_project.expect(api.model('AgentAssignment', {
@@ -429,7 +429,7 @@ class AssignAgentToTaskResource(Resource):
     @ns_task.expect(agent_task_assignment_model)
     @ns_task.response(200, 'Agent successfully assigned to task')
     def post(self, task_id):
-        """ Asigna un agente a una tarea específica """
+        """ Assign an agent to a specific task """
         data = request.json
         if not data or 'agent_id' not in data:
             api.abort(400, "Invalid request. Must include agent_id in the JSON body.")
@@ -440,10 +440,10 @@ class AssignAgentToTaskResource(Resource):
         
         task.agent_id = agent_id
         db.session.commit()
-        return {'message': 'Agente asignado a la tarea'}, 200
+        return {'message': 'Agent assigned to task'}, 200
 
 
-
+# Run CrewAI Project
 @ns_project.route('/<int:project_id>/run_project')
 class RunProjectResource(Resource):
      def post(self, project_id):
@@ -472,7 +472,7 @@ class RunProjectResource(Resource):
 
         
 
-# Registra los namespaces en la aplicación Flask
+# Add namespaces to the API
 api.add_namespace(ns_project)
 api.add_namespace(ns_agent)
 api.add_namespace(ns_task)
